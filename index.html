@@ -334,45 +334,131 @@ function arrowButtonsSetup(){
 }
 
 // ---------- Voice recognition (keeps your original single-press behaviour) ----------
+// --------- Hold-to-record voice (drop-in replacement) ---------
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 let recognizer = null;
-let voiceTimeout = null;
-function mapVoiceToCommand(text){
-  const t = text.trim().toLowerCase();
-  if(t.includes('forward') || t.includes('up') || t.includes('ahead') || t.includes('go')) return 'forward';
-  if(t.includes('back') || t.includes('backward') || t.includes('down') || t.includes('reverse')) return 'backward';
-  if(t.includes('left')) return 'left';
-  if(t.includes('right')) return 'right';
-  if(t.includes('stop') || t.includes('halt')) return 'stop';
-  return null;
-}
-function startVoice(){
-  if(!SpeechRecognition){ alert('Speech recognition not supported in this browser.'); return; }
-  if(currentMode !== 'voice') return;
-  if(voiceTimeout) { clearTimeout(voiceTimeout); voiceTimeout = null; }
-  if(!recognizer){
-    recognizer = new SpeechRecognition();
-    recognizer.lang = 'en-US';
-    recognizer.interimResults = false;
-    recognizer.maxAlternatives = 1;
-    recognizer.continuous = false;
-    recognizer.onresult = (e)=>{
-      const transcript = e.results[0][0].transcript.trim();
-      voiceTextEl.textContent = transcript || '—';
+let isListening = false;
+
+// create or reset recognizer with handlers
+function createRecognizer() {
+  if (!SpeechRecognition) return null;
+  const r = new SpeechRecognition();
+  r.lang = 'en-US';
+  r.interimResults = false;
+  r.maxAlternatives = 1;
+  r.continuous = false;
+
+  r.onresult = (e) => {
+    // got a result — send immediately
+    const transcript = (e.results && e.results[0] && e.results[0][0].transcript || '').trim();
+    voiceTextEl.textContent = transcript || '—';
+    if (transcript) {
+      // send raw voice line
       sendUART(`VOICE:${transcript}`);
+      // map to movement and send mapped command if any
       const mapped = mapVoiceToCommand(transcript);
-      if(mapped){ sendUART(mapped); highlightArrowForCommand(mapped); }
-    };
-    recognizer.onend = ()=>{ voiceBtn.classList.remove('listening'); if(voiceTimeout){ clearTimeout(voiceTimeout); voiceTimeout=null; } };
-    recognizer.onerror = (err)=>{ console.warn('Speech error', err); voiceBtn.classList.remove('listening'); if(voiceTimeout){ clearTimeout(voiceTimeout); voiceTimeout=null; } };
-  }
-  voiceBtn.classList.add('listening');
-  try{ recognizer.start(); voiceTimeout = setTimeout(()=>{ try{ recognizer.stop(); }catch(e){ console.warn('recognizer stop error', e); } }, 1000); }catch(e){ console.warn('recognizer start error', e); voiceBtn.classList.remove('listening'); }
+      if (mapped) {
+        sendUART(mapped);
+        highlightArrowForCommand(mapped);
+      }
+    }
+  };
+
+  r.onend = () => {
+    // recognizer stopped (either by us or automatically)
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+  };
+
+  r.onerror = (err) => {
+    console.warn('Speech error', err);
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+  };
+
+  return r;
 }
-voiceBtn.addEventListener('click', (e)=>{ e.preventDefault(); if(currentMode === 'voice') startVoice(); });
-voiceBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); if(currentMode === 'voice') startVoice(); }, {passive:false});
-voiceBtn.addEventListener('keydown', (e)=>{ if((e.key===' '||e.key==='Enter')){ e.preventDefault(); if(currentMode === 'voice') startVoice(); } });
-function highlightArrowForCommand(cmd){ document.querySelectorAll('.arrow-btn').forEach(el=>el.classList.remove('active')); const map = { forward: '#btn-up', backward: '#btn-down', left: '#btn-left', right: '#btn-right' }; const sel = map[cmd]; if(sel){ const el = document.querySelector(sel); el && el.classList.add('active'); } }
+
+// helper: start listening (called on pointerdown / touchstart)
+function startListening() {
+  if (currentMode !== 'voice') return;
+  if (!SpeechRecognition) { alert('Speech recognition not supported in this browser.'); return; }
+  if (isListening) return; // already listening
+
+  if (!recognizer) recognizer = createRecognizer();
+  if (!recognizer) return;
+
+  try {
+    // visual state
+    isListening = true;
+    voiceBtn.classList.add('listening');
+    // start recognition
+    recognizer.start();
+  } catch (e) {
+    console.warn('recognizer start error', e);
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+  }
+}
+
+// helper: stop listening (called on pointerup / touchend)
+function stopListening() {
+  if (!isListening || !recognizer) return;
+  try {
+    // stopping will trigger onresult (if something was captured) and then onend
+    recognizer.stop();
+  } catch (e) {
+    console.warn('recognizer stop error', e);
+    // ensure we clear visual state
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+  }
+}
+
+// Attach pointer events (handles mouse, pen, touch consistently).
+// Use pointerdown/pointerup + pointercancel for robust handling.
+voiceBtn.addEventListener('pointerdown', (e) => {
+  // prevent synthetic mouse events after touch
+  e.preventDefault();
+  // only active in voice mode
+  if (currentMode !== 'voice') return;
+  startListening();
+}, { passive: false });
+
+// pointerup stops recording
+voiceBtn.addEventListener('pointerup', (e) => {
+  e.preventDefault();
+  if (currentMode !== 'voice') return;
+  stopListening();
+});
+
+// if pointer leaves / gets cancelled, stop as well
+voiceBtn.addEventListener('pointercancel', (e) => {
+  e.preventDefault();
+  if (currentMode !== 'voice') return;
+  stopListening();
+});
+voiceBtn.addEventListener('pointerleave', (e) => {
+  // If user drags finger off the button while holding, stop listening for safety.
+  if (e.pressure === 0) return; // not actively pressing
+  if (currentMode !== 'voice') return;
+  stopListening();
+});
+
+// Also support keyboard activation: Space or Enter start on keydown, stop on keyup
+voiceBtn.addEventListener('keydown', (e) => {
+  if ((e.key === ' ' || e.key === 'Enter') && currentMode === 'voice') {
+    e.preventDefault();
+    if (!isListening) startListening();
+  }
+});
+voiceBtn.addEventListener('keyup', (e) => {
+  if ((e.key === ' ' || e.key === 'Enter') && currentMode === 'voice') {
+    e.preventDefault();
+    if (isListening) stopListening();
+  }
+});
+
 
 // ---------- Keyboard handling (merged from your snippet, kept same char mapping) ----------
 var up_state = false; var down_state = false; var left_state = false; var right_state = false; var z_state = false; var x_state = false; var space_state = false;
