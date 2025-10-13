@@ -295,16 +295,17 @@ function animateRipple(){
 }
 
 // ---------- speed slider ----------
-let sBusy=false;
+let sBusy = false;
 slider1.addEventListener('input', (e) => {
-  v1.textContent = e.target.value;
+  // convert range 0–100 → 0–255
+  const scaledValue = Math.round((e.target.value / 100) * 255);
+  v1.textContent = scaledValue;
   if (sBusy) return;
   sBusy = true;
-  // send only the numeric speed value (no prefix)
-  sendUART(String(e.target.value));
+  // send with prefix "speed"
+  sendUART(`speed${scaledValue}`);
   setTimeout(() => sBusy = false, 140);
 });
-
 
 // ---------- Arrow/button behaviour ----------
 const arrowButtons = document.querySelectorAll('.arrow-btn');
