@@ -13,9 +13,9 @@
     --shadow:0 18px 60px rgba(0,0,0,0.25);
     --radius:22px;
     --gap:48px;
-    --control-size:420px;   /* increased controller size */
-    --arrow-size:110px;     /* arrow button size */
-    --center-size:160px;    /* center mic size */
+    --control-size:420px;
+    --arrow-size:110px;
+    --center-size:160px;
     --ctrl-gap:54px;
     --btn-h:56px;
     --font-sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
@@ -29,7 +29,6 @@
     border-radius:var(--radius);box-shadow:var(--shadow);padding:44px;display:flex;gap:var(--gap);align-items:stretch;overflow:hidden;
   }
 
-  /* Left controller area */
   .panel-left{flex:1;min-width:520px;display:flex;align-items:center;justify-content:center;padding:28px;}
   .controller{
     width:var(--control-size);height:var(--control-size);
@@ -69,7 +68,6 @@
   .right{grid-row:2;grid-column:3}
   .down{grid-row:3;grid-column:2}
 
-  /* center mic button */
   .dot{
     grid-row:2;grid-column:2;
     width:var(--center-size);height:var(--center-size);
@@ -89,7 +87,33 @@
 
   .ripple{position:absolute;width:18px;height:18px;border-radius:999px;background:rgba(255,255,255,0.12);pointer-events:none;transform:scale(0);opacity:0;}
 
-  /* Right panel (controls) */
+  .control-modes{
+    display:flex;
+    gap:12px;
+    margin-bottom:20px;
+    justify-content:center;
+  }
+  .mode-btn{
+    background:var(--glass);
+    color:var(--white);
+    border:1px solid rgba(255,255,255,0.06);
+    padding:12px 24px;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:800;
+    font-size:14px;
+    transition:all .2s ease;
+    user-select:none;
+  }
+  .mode-btn.active{
+    background:var(--white);
+    color:var(--bg);
+    box-shadow:0 8px 24px rgba(0,0,0,0.15);
+  }
+  .mode-btn:hover:not(.active){
+    background:rgba(255,255,255,0.08);
+  }
+
   .panel-right{
     width:520px; max-width:48%;
     padding:28px;
@@ -128,12 +152,14 @@
   }
   .btn{background:var(--white);color:var(--bg);border:none;padding:12px 20px;border-radius:14px;cursor:pointer;font-weight:800;height:var(--btn-h);box-shadow:0 16px 40px rgba(0,0,0,0.12);font-size:15px;}
   .btn.ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,0.06);}
-  .conn-small{font-size:13px;opacity:.9;color:rgba(255,255,255,0.95);text-align:right}
+  .conn-small{font-size:16px;opacity:.9;color:rgba(255,255,255,0.95);text-align:center;margin-bottom:16px;font-weight:600;}
 
-  /* active arrow highlight color */
   .arrow-btn.active { background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03)); }
 
-  /* responsive */
+  .voice-mode .arrow-btn{ display:none; }
+  .button-mode .dot{ display:none; }
+  .voice-mode .controller{ grid-template-rows: 1fr; grid-template-columns: 1fr; place-items:center; }
+
   @media (max-width:1200px){
     :root{ --control-size:360px; --arrow-size:90px; --center-size:140px; --gap:28px; }
     .panel-right{width:440px;}
@@ -151,23 +177,23 @@
   <div class="app" role="application" aria-label="Microbit Controller">
     <div class="panel-left">
       <div class="controller" id="controller">
-        <div class="arrow-btn up" data-dir="FORWARD" id="btn-up" title="Forward" role="button" tabindex="0" aria-pressed="false">
+        <div class="arrow-btn up" data-dir="forward" id="btn-up" title="Forward" role="button" tabindex="0" aria-pressed="false">
           <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M12 4l-8 8h6v8h4v-8h6z"/></svg>
         </div>
 
-        <div class="arrow-btn left" data-dir="LEFT" id="btn-left" title="Left" role="button" tabindex="0" aria-pressed="false">
+        <div class="arrow-btn left" data-dir="left" id="btn-left" title="Left" role="button" tabindex="0" aria-pressed="false">
           <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M6 12l8-8v6h8v4h-8v6z"/></svg>
         </div>
 
-        <div class="dot" id="voiceBtn" title="Press and hold to speak" role="button" tabindex="0" aria-pressed="false" aria-label="Voice input">
+        <div class="dot" id="voiceBtn" title="Press to speak" role="button" tabindex="0" aria-pressed="false" aria-label="Voice input">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
         </div>
 
-        <div class="arrow-btn right" data-dir="RIGHT" id="btn-right" title="Right" role="button" tabindex="0" aria-pressed="false">
+        <div class="arrow-btn right" data-dir="right" id="btn-right" title="Right" role="button" tabindex="0" aria-pressed="false">
           <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M18 12l-8 8v-6H2v-4h8V4z"/></svg>
         </div>
 
-        <div class="arrow-btn down" data-dir="BACKWARD" id="btn-down" title="Backward" role="button" tabindex="0" aria-pressed="false">
+        <div class="arrow-btn down" data-dir="backward" id="btn-down" title="Backward" role="button" tabindex="0" aria-pressed="false">
           <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M12 20l8-8h-6V4h-4v8H4z"/></svg>
         </div>
 
@@ -176,6 +202,11 @@
     </div>
 
     <div class="panel-right">
+      <div class="control-modes">
+        <button class="mode-btn active" id="buttonModeBtn">Button Control</button>
+        <button class="mode-btn" id="voiceModeBtn">Voice Control</button>
+      </div>
+      
       <div class="conn-small" id="connSmall">Not connected</div>
 
       <div class="card">
@@ -195,7 +226,6 @@
         <div class="device-controls">
           <button id="connectBtn" class="btn">Connect</button>
           <button id="disconnectBtn" class="btn ghost">Disconnect</button>
-          <div style="flex:1"></div>
         </div>
       </div>
     </div>
@@ -203,109 +233,133 @@
 </div>
 
 <script>
-/* Single-file app
-   - Larger UI & spacing
-   - Press & hold voice: starts speech recognition; releasing stops it and sends voice text via BLE
-   - If voice maps to movement (forward/backward/left/right) the app sends that command and locks voiceActive
-     so STOP is not sent automatically until user presses any arrow (that clears the voice lock)
-   - Arrows send FORWARD/BACKWARD/LEFT/RIGHT and send STOP on release only when voiceActive === false
-   - Slider (SPEED) sends SPEED:<value>
-   - Connect/Disconnect buttons use browser pairing (requestDevice) to obtain GATT and Nordic UART service
-*/
+const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_TX_CHARACTERISTIC_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+const UART_RX_CHARACTERISTIC_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
-const nusService = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const nusTxChar  = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write
-const nusRxChar  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // notify
-
-let bleServer = null;
-let txCharacteristic = null;
-let rxCharacteristic = null;
-let pairedDevice = null;
+let uBitDevice;
+let txCharacteristic;
+let rxCharacteristic;
 
 const connSmall = document.getElementById('connSmall');
 const connectBtn = document.getElementById('connectBtn');
 const disconnectBtn = document.getElementById('disconnectBtn');
-
 const slider1 = document.getElementById('slider1');
 const v1 = document.getElementById('v1');
-
 const voiceTextEl = document.getElementById('voiceText');
 const voiceBtn = document.getElementById('voiceBtn');
 const ripple = document.getElementById('ripple');
+const buttonModeBtn = document.getElementById('buttonModeBtn');
+const voiceModeBtn = document.getElementById('voiceModeBtn');
+const controller = document.getElementById('controller');
+
+let currentMode = 'button';
 
 function setConnText(t, color){
   connSmall.textContent = t;
   connSmall.style.color = color || 'white';
 }
 
-/* Pair & connect flow */
-async function connectFlow(){
-  try{
-    setConnText('Pairing...', 'yellow');
-    const device = await navigator.bluetooth.requestDevice({
-      acceptAllDevices: true,
-      optionalServices: [nusService]
-    });
-    pairedDevice = device;
-    device.addEventListener('gattserverdisconnected', onDisconnected);
-    setConnText('Connecting...', 'yellow');
-    const server = await device.gatt.connect();
-    bleServer = server;
-    const service = await server.getPrimaryService(nusService);
-    txCharacteristic = await service.getCharacteristic(nusTxChar);
-    try{
-      rxCharacteristic = await service.getCharacteristic(nusRxChar);
-      await rxCharacteristic.startNotifications();
-      rxCharacteristic.addEventListener('characteristicvaluechanged', e=>{
-        const txt = new TextDecoder().decode(e.target.value);
-        console.log('RX:', txt);
-      });
-    }catch(_){}
-    setConnText('Connected: ' + (device.name || 'device'), '#b5f27d');
-  }catch(err){
-    console.warn('Connect failed', err);
-    setConnText('Not connected', 'salmon');
-  }
-}
-connectBtn.addEventListener('click', connectFlow);
-
-function onDisconnected(){
-  setConnText('Disconnected', 'white');
-  bleServer = null; txCharacteristic = null; rxCharacteristic = null; pairedDevice = null;
-}
-disconnectBtn.addEventListener('click', ()=>{
-  if(pairedDevice && pairedDevice.gatt && pairedDevice.gatt.connected){
-    pairedDevice.gatt.disconnect();
-    setConnText('Disconnected', 'white');
+function switchMode(mode) {
+  currentMode = mode;
+  buttonModeBtn.classList.toggle('active', mode === 'button');
+  voiceModeBtn.classList.toggle('active', mode === 'voice');
+  controller.className = 'controller';
+  if (mode === 'voice') {
+    controller.classList.add('voice-mode');
   } else {
-    setConnText('Not connected', 'white');
+    controller.classList.add('button-mode');
   }
-});
+  document.querySelectorAll('.arrow-btn').forEach(btn => {
+    btn.classList.remove('active', 'pressed');
+  });
+  voiceBtn.classList.remove('listening');
+  voiceTextEl.textContent = '—';
+}
 
-/* send via BLE (NUS) */
-async function sendCommand(str){
-  animateRipple();
-  if(!txCharacteristic){ setConnText('Not connected', 'salmon'); return; }
-  try{
-    const data = new TextEncoder().encode(str + '\n');
-    await txCharacteristic.writeValue(data);
-  }catch(e){
-    console.error('Write error', e);
-    setConnText('Send failed', 'salmon');
+buttonModeBtn.addEventListener('click', () => switchMode('button'));
+voiceModeBtn.addEventListener('click', () => switchMode('voice'));
+switchMode('button');
+
+async function connectButtonPressed() {
+  try {
+    setConnText('Pairing...', 'yellow');
+    uBitDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "BBC micro:bit" }],
+      optionalServices: [UART_SERVICE_UUID]
+    });
+    
+    uBitDevice.addEventListener('gattserverdisconnected', onDisconnected);
+    setConnText('Connecting...', 'yellow');
+    const server = await uBitDevice.gatt.connect();
+    setConnText('Getting service...', 'yellow');
+    const service = await server.getPrimaryService(UART_SERVICE_UUID);
+    setConnText('Getting characteristics...', 'yellow');
+    
+    rxCharacteristic = await service.getCharacteristic(UART_RX_CHARACTERISTIC_UUID);
+    txCharacteristic = await service.getCharacteristic(UART_TX_CHARACTERISTIC_UUID);
+    
+    await rxCharacteristic.startNotifications();
+    rxCharacteristic.addEventListener("characteristicvaluechanged", onRxCharacteristicValueChanged);
+    
+    setConnText('Connected: ' + (uBitDevice.name || 'Micro:Bit'), '#b5f27d');
+    console.log('Bluetooth connected successfully!');
+  } catch (error) {
+    console.error('Connect failed', error);
+    setConnText('Connection failed', 'salmon');
   }
 }
 
-/* slider (SPEED) */
-let sBusy=false;
-slider1.addEventListener('input', (e)=>{
-  v1.textContent = e.target.value;
-  if(sBusy) return;
-  sBusy=true;
-  sendCommand(`SPEED:${e.target.value}`);
-  setTimeout(()=> sBusy=false, 140);
-});
+function disconnectButtonPressed() {
+  if (!uBitDevice) return;
+  if (uBitDevice.gatt.connected) {
+    uBitDevice.gatt.disconnect();
+  }
+}
 
-/* ripple animation under center */
+function onDisconnected(event) {
+  setConnText('Disconnected', 'white');
+  uBitDevice = null;
+  txCharacteristic = null;
+  rxCharacteristic = null;
+}
+
+connectBtn.addEventListener('click', connectButtonPressed);
+disconnectBtn.addEventListener('click', disconnectButtonPressed);
+
+async function sendUART(data) {
+  if (!txCharacteristic) {
+    setConnText('Not connected - Click Connect first', 'salmon');
+    return;
+  }
+  
+  let encoder = new TextEncoder();
+  queueGattOperation(() => 
+    txCharacteristic.writeValue(encoder.encode(data + "\n"))
+      .then(() => console.log("SENT:", data))
+      .catch(error => console.error('Send error:', error))
+  );
+}
+
+let queue = Promise.resolve();
+function queueGattOperation(operation) {
+  queue = queue.then(operation, operation);
+  return queue;
+}
+
+function onRxCharacteristicValueChanged(event) {
+  let receivedData = [];
+  for (var i = 0; i < event.target.value.byteLength; i++) {
+    receivedData[i] = event.target.value.getUint8(i);
+  }
+  const receivedString = String.fromCharCode.apply(null, receivedData);
+  console.log("RECEIVED from Micro:Bit:", receivedString);
+  
+  if (receivedString.includes("S")) {
+    console.log("Shaken!");
+  }
+}
+
 function animateRipple(){
   const size = Math.max(160, window.innerWidth * 0.08);
   ripple.style.width = ripple.style.height = size + 'px';
@@ -317,157 +371,80 @@ function animateRipple(){
   );
 }
 
-/* Arrow behaviour
-   - press -> send direction; add .active class to arrow
-   - release -> send STOP only when voiceActive === false
-   - pressing any arrow cancels voiceActive lock (clears voice text, removes center listening)
-*/
-let voiceActive = false;
+let sBusy=false;
+slider1.addEventListener('input', (e)=>{
+  v1.textContent = e.target.value;
+  if(sBusy) return;
+  sBusy=true;
+  sendUART(`SPEED:${e.target.value}`);
+  setTimeout(()=> sBusy=false, 140);
+});
+
 const arrowButtons = document.querySelectorAll('.arrow-btn');
 arrowButtons.forEach(btn=>{
   const dir = btn.dataset.dir;
   const press = (ev)=>{
     ev.preventDefault();
+    if(currentMode !== 'button') return;
     btn.classList.add('pressed','active');
-    if(voiceActive){ voiceActive = false; voiceTextEl.textContent = '—'; voiceBtn.classList.remove('listening'); }
-    sendCommand(dir);
+    animateRipple();
+    sendUART(dir);
   };
   const release = (ev)=>{
     ev.preventDefault();
+    if(currentMode !== 'button') return;
     btn.classList.remove('pressed');
-    // remove active after a short delay so user sees highlight
     setTimeout(()=> btn.classList.remove('active'), 180);
-    if(!voiceActive) sendCommand('STOP');
+    sendUART('stop');
   };
   btn.addEventListener('mousedown', press);
   btn.addEventListener('touchstart', press, {passive:true});
   btn.addEventListener('mouseup', release);
   btn.addEventListener('mouseleave', release);
   btn.addEventListener('touchend', release);
-  // keyboard
   btn.addEventListener('keydown', (e)=>{ if(e.key === ' ' || e.key === 'Enter'){ press(e); }});
   btn.addEventListener('keyup', (e)=>{ if(e.key === ' ' || e.key === 'Enter'){ release(e); }});
 });
 
-/* Voice — press & hold behaviour
-   - start recognition on press
-   - stop recognition on release
-   - onresult -> show recognized text, send VOICE:<text>, map to movement and if mapped send that command and set voiceActive lock (so STOP isn't auto-sent)
-   - releasing the button does NOT clear that voiceActive lock (user must press an arrow to cancel)
-*/
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 let recognizer = null;
-let pressing = false;
 
 function mapVoiceToCommand(text){
   const t = text.trim().toLowerCase();
-  if(t.includes('forward') || t.includes('up') || t.includes('ahead') || t.includes('go')) return 'FORWARD';
-  if(t.includes('back') || t.includes('backward') || t.includes('down') || t.includes('reverse')) return 'BACKWARD';
-  if(t.includes('left')) return 'LEFT';
-  if(t.includes('right')) return 'RIGHT';
-  if(t.includes('stop') || t.includes('halt')) return 'STOP';
+  if(t.includes('forward') || t.includes('up') || t.includes('ahead') || t.includes('go')) return 'forward';
+  if(t.includes('back') || t.includes('backward') || t.includes('down') || t.includes('reverse')) return 'backward';
+  if(t.includes('left')) return 'left';
+  if(t.includes('right')) return 'right';
+  if(t.includes('stop') || t.includes('halt')) return 'stop';
   return null;
 }
 
 function startVoice(){
-  if(!SpeechRecognition){ alert('Speech recognition not supported in this browser.'); return; }
-  if(pressing) return;
-  pressing = true;
+  if(!SpeechRecognition){ alert('Speech recognition not supported'); return; }
+  if(currentMode !== 'voice') return;
+  
   if(!recognizer){
     recognizer = new SpeechRecognition();
     recognizer.lang = 'en-US';
-    recognizer.interimResults = false;
-    recognizer.maxAlternatives = 1;
+    recognizer.continuous = false;
     recognizer.onresult = (e)=>{
       const transcript = e.results[0][0].transcript.trim();
-      voiceTextEl.textContent = transcript || '—';
-      // send raw text
-      sendCommand(`VOICE:${transcript}`);
-      // map and send movement if any
+      voiceTextEl.textContent = transcript;
+      sendUART(`VOICE:${transcript}`);
       const mapped = mapVoiceToCommand(transcript);
-      if(mapped){
-        voiceActive = true;
-        sendCommand(mapped);
-        voiceBtn.classList.add('listening');
-        // highlight corresponding arrow visually
-        highlightArrowForCommand(mapped);
-      } else {
-        // if no movement word, still set lock so STOP won't be auto-sent until arrow press (per user request)
-        voiceActive = true;
-        voiceBtn.classList.add('listening');
-      }
+      if(mapped) sendUART(mapped);
     };
-    recognizer.onend = ()=>{
-      // recognition finished normally (releasing voice button triggers stop)
-      pressing = false;
-      // keep voiceActive until arrow pressed
-      voiceBtn.classList.remove('active-press');
-    };
-    recognizer.onerror = (err) => {
-      console.warn('Speech error', err);
-      pressing = false;
-      voiceBtn.classList.remove('active-press');
-      recognizer.abort && recognizer.abort();
-    };
+    recognizer.onend = ()=> voiceBtn.classList.remove('listening');
   }
-  voiceBtn.classList.add('active-press','listening');
-  try { recognizer.start(); } catch(e) { console.warn('recognizer start error', e); }
+  
+  voiceBtn.classList.add('listening');
+  recognizer.start();
+  setTimeout(() => recognizer.stop(), 1000);
 }
 
-function stopVoice(){
-  if(!recognizer) return;
-  try { recognizer.stop(); } catch(e) { console.warn('recognizer stop error', e); }
-  // actual onresult will handle sending; onend will clear pressing
-}
-
-/* visual highlight helper */
-function highlightArrowForCommand(cmd){
-  document.querySelectorAll('.arrow-btn').forEach(el=>el.classList.remove('active'));
-  const map = { FORWARD: '#btn-up', BACKWARD: '#btn-down', LEFT: '#btn-left', RIGHT: '#btn-right' };
-  const sel = map[cmd];
-  if(sel){
-    const el = document.querySelector(sel);
-    el && el.classList.add('active');
-  }
-}
-
-/* press & hold handlers */
-voiceBtn.addEventListener('mousedown', (e)=> { e.preventDefault(); startVoice(); });
-voiceBtn.addEventListener('touchstart', (e)=> { e.preventDefault(); startVoice(); }, {passive:false});
-voiceBtn.addEventListener('mouseup', (e)=> { e.preventDefault(); stopVoice(); });
-voiceBtn.addEventListener('mouseleave', (e)=> { e.preventDefault(); if(pressing) stopVoice(); });
-voiceBtn.addEventListener('touchend', (e)=> { e.preventDefault(); stopVoice(); }, {passive:false});
-voiceBtn.addEventListener('touchcancel', (e)=> { e.preventDefault(); stopVoice(); }, {passive:false});
-
-/* keyboard: hold Space or Enter to start, release to stop */
-let keyHeld = false;
-voiceBtn.addEventListener('keydown', (e)=>{ if((e.key===' '||e.key==='Enter') && !keyHeld){ e.preventDefault(); keyHeld=true; startVoice(); }});
-voiceBtn.addEventListener('keyup', (e)=>{ if((e.key===' '||e.key==='Enter')){ e.preventDefault(); keyHeld=false; stopVoice(); }});
-
-/* keyboard arrows mimic clicking arrows */
-window.addEventListener('keydown', (e)=>{
-  const map = {'ArrowUp':'FORWARD','ArrowDown':'BACKWARD','ArrowLeft':'LEFT','ArrowRight':'RIGHT'};
-  if(map[e.key]){
-    const dir = map[e.key];
-    const btn = document.querySelector(`.arrow-btn[data-dir="${dir}"]`);
-    if(btn && !btn.classList.contains('pressed')){
-      if(voiceActive){ voiceActive=false; voiceTextEl.textContent='—'; voiceBtn.classList.remove('listening'); document.querySelectorAll('.arrow-btn').forEach(x=>x.classList.remove('active')); }
-      btn.classList.add('pressed','active');
-      sendCommand(dir);
-    }
-  }
-});
-window.addEventListener('keyup', (e)=>{
-  const map = {'ArrowUp':'FORWARD','ArrowDown':'BACKWARD','ArrowLeft':'LEFT','ArrowRight':'RIGHT'};
-  if(map[e.key]){
-    const dir = map[e.key];
-    const btn = document.querySelector(`.arrow-btn[data-dir="${dir}"]`);
-    if(btn && btn.classList.contains('pressed')){
-      btn.classList.remove('pressed');
-      setTimeout(()=> btn.classList.remove('active'), 180);
-      if(!voiceActive) sendCommand('STOP');
-    }
-  }
+voiceBtn.addEventListener('click', (e)=> { 
+  e.preventDefault(); 
+  if(currentMode === 'voice') startVoice(); 
 });
 </script>
 </body>
