@@ -296,13 +296,15 @@ function animateRipple(){
 
 // ---------- speed slider ----------
 let sBusy=false;
-slider1.addEventListener('input', (e)=>{
+slider1.addEventListener('input', (e) => {
   v1.textContent = e.target.value;
-  if(sBusy) return;
-  sBusy=true;
-  sendUART(`SPEED:${e.target.value}`);
-  setTimeout(()=> sBusy=false, 140);
+  if (sBusy) return;
+  sBusy = true;
+  // send only the numeric speed value (no prefix)
+  sendUART(String(e.target.value));
+  setTimeout(() => sBusy = false, 140);
 });
+
 
 // ---------- Arrow/button behaviour ----------
 const arrowButtons = document.querySelectorAll('.arrow-btn');
@@ -353,13 +355,16 @@ function createRecognizer() {
     const transcript = (e.results && e.results[0] && e.results[0][0].transcript || '').trim();
     voiceTextEl.textContent = transcript || '—';
     if (transcript) {
-      // send raw voice line
-      sendUART(`VOICE:${transcript}`);
-      // map to movement and send mapped command if any
-      const mapped = mapVoiceToCommand(transcript);
-      if (mapped) {
-        sendUART(mapped);
-        highlightArrowForCommand(mapped);
+      // send raw voice text ONLY (no "VOICE:" prefix)
+      sendUART(transcript);
+
+      // map to movement and send mapped command if mapping function exists
+      if (typeof mapVoiceToCommand === 'function') {
+        const mapped = mapVoiceToCommand(transcript);
+        if (mapped) {
+          sendUART(mapped);
+          if (typeof highlightArrowForCommand === 'function') highlightArrowForCommand(mapped);
+        }
       }
     }
   };
