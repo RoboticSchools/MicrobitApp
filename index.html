@@ -82,7 +82,17 @@
     .arrow-btn:active, .arrow-btn.pressed, .arrow-btn.active {
       transform: translateY(-8px) scale(1.03);
       box-shadow: 0 28px 60px rgba(0,0,0,0.32);
-      background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+      /* keep smooth transition but override background/icon below */
+    }
+
+    /* When active/pressed make the whole button solid white and invert the icon to the accent (orange) */
+    .arrow-btn.active, .arrow-btn.pressed {
+      background: var(--white) !important;
+      border-color: rgba(255,255,255,0.9);
+    }
+    .arrow-btn.active .arrow-icon, .arrow-btn.pressed .arrow-icon{
+      fill: var(--bg) !important;
+      opacity:1;
     }
 
     .up{grid-row:1;grid-column:2}
@@ -180,7 +190,7 @@
     .conn-small{font-size:16px;opacity:.9;color:rgba(255,255,255,0.95);text-align:center;margin-bottom:16px;font-weight:600;}
 
     /* active arrow highlight color */
-    .arrow-btn.active { background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03)); }
+    .arrow-btn.active { /* kept for legacy, actual change done above */ }
 
     /* Hide elements based on mode */
     .voice-mode .arrow-btn{ display:none; }
@@ -616,6 +626,28 @@ disconnectBtn.addEventListener('click', disconnectButtonPressed);
 function valBetween(v, min, max) { return (Math.min(max, Math.max(min, v))); }
 
 function allStop(){ sendUART('STOP'); }
+
+// Optional helper used by voice mapping to briefly highlight arrows when voice maps to a direction
+function highlightArrowForCommand(cmd){
+  const mapping = { 'forward':'btn-up', 'backward':'btn-down', 'left':'btn-left', 'right':'btn-right', 'stop':'btn-down' };
+  const id = mapping[cmd];
+  if(!id) return;
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('active');
+  setTimeout(()=> el.classList.remove('active'), 360);
+}
+
+// Simple voice->command mapper (naive)
+function mapVoiceToCommand(text){
+  const t = text.toLowerCase();
+  if(t.includes('forward') || t.includes('ahead') || t.includes('up')) return 'forward';
+  if(t.includes('back') || t.includes('reverse') || t.includes('down')) return 'backward';
+  if(t.includes('left')) return 'left';
+  if(t.includes('right')) return 'right';
+  if(t.includes('stop') || t.includes('halt')) return 'stop';
+  return null;
+}
 
 </script>
 </body>
