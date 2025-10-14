@@ -21,6 +21,27 @@
       --font-sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
     }
 
+    .top-header {
+      position: fixed;
+      top: 20px;
+      left: 30px;
+      display: flex;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .logo {
+      height: 70px;
+      width: auto;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .logo:hover {
+      transform: scale(1.05);
+    }
+
+
     html,body{height:100%;margin:0;font-family:var(--font-sans);background:var(--bg);color:var(--white);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
     .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:36px;box-sizing:border-box;}
 
@@ -180,6 +201,9 @@
   </style>
 </head>
 <body>
+  <header class="top-header">
+  <img src="logo.png" alt="Robotic Schools Logo" class="logo">
+</header>
 <div class="wrap">
   <div class="app" role="application" aria-label="Microbit Controller">
     <div class="panel-left">
