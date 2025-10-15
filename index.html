@@ -226,7 +226,7 @@
           <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M6 12l8-8v6h8v4h-8v6z"/></svg>
         </div>
 
-        <div class="dot" id="voiceBtn" title="Press to toggle voice" role="button" tabindex="0" aria-pressed="false" aria-label="Voice input">
+        <div class="dot" id="voiceBtn" title="Press and hold to speak" role="button" tabindex="0" aria-pressed="false" aria-label="Voice input">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
         </div>
 
@@ -279,8 +279,7 @@
    - This single-file contains the UI from your earlier file plus a robust BLE layer adapted
      from your second snippet. It writes to the micro:bit RX characteristic (6e400003) and
      subscribes to notifications from the TX characteristic (6e400002).
-   - Only the voice recognition block has been adjusted to provide continuous listening
-     while the voice button is toggled on. Everything else remains unchanged.
+   - It also merges keyboard/arrow behaviour and the voice mapping you had.
 */
 
 // ---------- UI helpers ----------
@@ -371,10 +370,18 @@ function arrowButtonsSetup(){
   });
 }
 
-// ---------- Voice recognition (continuous while toggled) ----------
+// ---------- Voice recognition (keeps your original single-press behaviour) ----------
+// --------- Hold-to-record voice (drop-in replacement) ---------
+// ---------- Voice recognition (toggle-on / toggle-off, poll ~1s) ----------
+
+// ---------- Voice recognition (toggle-on / toggle-off, poll ~1s, no prefix) ----------
+// Sends recognized text directly to micro:bit and also mapped movement commands.
+
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 let recognizer = null;
 let isListening = false;
+let pollingId = null;
+const POLL_INTERVAL_MS = 1000; // check every 1 second
 
 function createRecognizer() {
   if (!SpeechRecognition) return null;
@@ -382,7 +389,7 @@ function createRecognizer() {
   r.lang = 'en-US';
   r.interimResults = false;
   r.maxAlternatives = 1;
-  r.continuous = true; // keep continuous if browser supports it
+  r.continuous = false;
 
   r.onresult = (e) => {
     const transcript = (e.results && e.results[0] && e.results[0][0].transcript || '').trim();
@@ -411,81 +418,72 @@ function createRecognizer() {
   };
 
   r.onend = () => {
-    // Some browsers stop recognition automatically. If user still wants listening,
-    // restart the recognizer to maintain continuous listening until they toggle off.
-    if (isListening) {
-      try {
-        // Wait a small tick to avoid immediate start errors on some browsers
-        setTimeout(() => {
-          try { r.start(); } catch (e) { console.warn('restart failed', e); isListening = false; voiceBtn.classList.remove('listening'); setConnText('Voice: Stopped', 'white'); }
-        }, 200);
-      } catch (e) {
-        console.warn('onend restart error', e);
-        isListening = false;
-        voiceBtn.classList.remove('listening');
-        setConnText('Voice: Stopped', 'white');
-      }
-    } else {
-      voiceBtn.classList.remove('listening');
-      setConnText('Voice: Stopped', 'white');
-    }
+    isListening = false;
+    voiceBtn.classList.remove('listening');
   };
 
   r.onerror = (err) => {
     console.warn('Speech error', err);
-    // If recognizer errors out, stop listening flag — user can re-toggle
     isListening = false;
     voiceBtn.classList.remove('listening');
-    setConnText('Voice: Error', 'salmon');
   };
 
   return r;
 }
 
-function startListening() {
-  if (!SpeechRecognition) {
-    alert('Speech recognition not supported in this browser.');
-    return;
-  }
+function tryStartRecognitionOnce() {
+  if (!SpeechRecognition) return;
   if (isListening) return;
   if (!recognizer) recognizer = createRecognizer();
   if (!recognizer) return;
 
   try {
-    recognizer.start();
     isListening = true;
     voiceBtn.classList.add('listening');
-    setConnText('Voice: Listening (click to stop)', '#b5f27d');
+    recognizer.start();
   } catch (e) {
     console.warn('recognizer start error', e);
     isListening = false;
     voiceBtn.classList.remove('listening');
-    setConnText('Voice: Failed to start', 'salmon');
   }
 }
 
-function stopListening() {
-  if (!recognizer) return;
+function stopRecognitionPolling() {
+  if (pollingId) {
+    clearInterval(pollingId);
+    pollingId = null;
+  }
   try {
-    isListening = false;
-    recognizer.stop();
+    if (recognizer && isListening) recognizer.stop();
   } catch (e) {
     console.warn('error stopping recognizer', e);
     isListening = false;
+    voiceBtn.classList.remove('listening');
   }
-  voiceBtn.classList.remove('listening');
-  setConnText('Voice: Stopped', 'white');
 }
 
-// Toggle behavior on voice button:
 voiceBtn.addEventListener('click', (e) => {
   e.preventDefault();
   if (currentMode !== 'voice') return;
 
-  if (!isListening) {
-    startListening();
+  if (!SpeechRecognition) {
+    alert('Speech recognition not supported in this browser.');
+    return;
+  }
+
+  if (!pollingId) {
+    recognizer = createRecognizer();
+    pollingId = setInterval(() => {
+      tryStartRecognitionOnce();
+    }, POLL_INTERVAL_MS);
+
+    tryStartRecognitionOnce();
+    voiceBtn.classList.add('listening');
+    setConnText('Voice: Listening (click to stop)', '#b5f27d');
   } else {
-    stopListening();
+    stopRecognitionPolling();
+    voiceBtn.classList.remove('listening');
+    setConnText('Voice: Stopped', 'white');
   }
 });
 
@@ -495,6 +493,7 @@ voiceBtn.addEventListener('keydown', (e) => {
     voiceBtn.click();
   }
 });
+
 
 // ---------- Keyboard handling (merged from your snippet, kept same char mapping) ----------
 var up_state = false; var down_state = false; var left_state = false; var right_state = false; var z_state = false; var x_state = false; var space_state = false;
