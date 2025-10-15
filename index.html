@@ -371,129 +371,170 @@ function arrowButtonsSetup(){
 }
 
 // ---------- Voice recognition (keeps your original single-press behaviour) ----------
-// --------- Hold-to-record voice (drop-in replacement) ---------
-// ---------- Voice recognition (toggle-on / toggle-off, poll ~1s) ----------
-
-// ---------- Voice recognition (toggle-on / toggle-off, poll ~1s, no prefix) ----------
-// Sends recognized text directly to micro:bit and also mapped movement commands.
-
+// ---------- Voice recognition (continuous with robust auto-restart) ----------
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 let recognizer = null;
 let isListening = false;
-let pollingId = null;
-const POLL_INTERVAL_MS = 1000; // check every 1 second
+let silenceTimer = null;
+let restartBackoff = 250; // ms, grows on repeated errors up to a cap
+const RESTART_BACKOFF_MAX = 2000; // ms
+const SILENCE_MS = 6000; // restart if no speech result for this long
+
+function clearSilenceTimer(){
+  if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+}
+function armSilenceTimer(){
+  clearSilenceTimer();
+  silenceTimer = setTimeout(() => {
+    if (!isListening || !recognizer) return;
+    try {
+      // Restart recognition after prolonged silence
+      recognizer.abort();
+    } catch(e) { /* ignore */ }
+  }, SILENCE_MS);
+}
 
 function createRecognizer() {
   if (!SpeechRecognition) return null;
   const r = new SpeechRecognition();
   r.lang = 'en-US';
-  r.interimResults = false;
+  r.interimResults = true;   // get partials; reduces no-speech timeout sensitivity
   r.maxAlternatives = 1;
-  r.continuous = false;
+  r.continuous = true;       // stay running
 
   r.onresult = (e) => {
-    const transcript = (e.results && e.results[0] && e.results[0][0].transcript || '').trim();
-    voiceTextEl.textContent = transcript || '—';
-
-    if (transcript) {
-      // send movement commands when keywords are present (forward/backward/left/right)
-      const mapped = mapVoiceToCommand(transcript);
-      if (mapped) {
-        sendUART(mapped);
-        highlightArrowForCommand(mapped);
-      }
-
-      // If the user says the word "send" anywhere, send the full recognized text (excluding the word "send")
-      if (/\bsend\b/i.test(transcript)) {
-        // remove the word 'send' to avoid sending just the keyword; trim whitespace
-        const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
-        if (cleaned) {
-          sendUART(cleaned);
-        } else {
-          // if nothing remains besides 'send', still send the original transcript
-          sendUART(transcript);
-        }
-      }
+    // grab last non-empty transcript chunk
+    let transcript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = (e.results[i][0]?.transcript || '').trim();
+      if (t) transcript = t; // keep most recent
     }
+    if (!transcript) return;
+
+    voiceTextEl.textContent = transcript;
+
+    // keyword commands
+    const mapped = mapVoiceToCommand(transcript);
+    if (mapped) {
+      sendUART(mapped);
+      highlightArrowForCommand(mapped);
+    }
+
+    // "send" keyword: send the rest of the sentence (without the word "send")
+    if (/\bsend\b/i.test(transcript)) {
+      const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
+      sendUART(cleaned || transcript);
+    }
+
+    // got speech → re-arm silence watchdog
+    armSilenceTimer();
   };
 
   r.onend = () => {
-    isListening = false;
-    voiceBtn.classList.remove('listening');
+    // Chrome often stops despite continuous=true.
+    if (isListening) {
+      setTimeout(() => {
+        try { r.start(); } catch(e) { /* will be handled in onerror path */ }
+      }, restartBackoff);
+      // backoff grows a bit to avoid rapid-fire restarts
+      restartBackoff = Math.min(restartBackoff * 1.5, RESTART_BACKOFF_MAX);
+    } else {
+      voiceBtn.classList.remove('listening');
+      setConnText('Voice: Stopped', 'white');
+      clearSilenceTimer();
+    }
   };
 
   r.onerror = (err) => {
     console.warn('Speech error', err);
+    // Common error codes: 'no-speech', 'audio-capture', 'aborted', 'network'
+    if (!isListening) return;
+
+    // For no-speech or benign aborts, try a gentle restart
+    if (err.error === 'no-speech' || err.error === 'aborted' || err.error === 'network') {
+      try { r.abort(); } catch(e) {}
+      setTimeout(() => {
+        try { r.start(); } catch(e) { /* let onend handle retries */ }
+      }, restartBackoff);
+      restartBackoff = Math.min(restartBackoff * 1.5, RESTART_BACKOFF_MAX);
+      return;
+    }
+
+    // For other errors, stop and show status
     isListening = false;
     voiceBtn.classList.remove('listening');
+    setConnText('Voice: Error', 'salmon');
+    clearSilenceTimer();
   };
 
   return r;
 }
 
-function tryStartRecognitionOnce() {
-  if (!SpeechRecognition) return;
-  if (isListening) return;
-  if (!recognizer) recognizer = createRecognizer();
-  if (!recognizer) return;
-
+async function warmUpMic() {
+  // Prompt for mic once; improves start reliability on some browsers
+  if (!navigator.mediaDevices?.getUserMedia) return;
   try {
-    isListening = true;
-    voiceBtn.classList.add('listening');
-    recognizer.start();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // immediately stop all tracks; we just needed the permission/warmup
+    stream.getTracks().forEach(t => t.stop());
   } catch (e) {
-    console.warn('recognizer start error', e);
-    isListening = false;
-    voiceBtn.classList.remove('listening');
+    console.warn('Mic warmup failed', e);
   }
 }
 
-function stopRecognitionPolling() {
-  if (pollingId) {
-    clearInterval(pollingId);
-    pollingId = null;
-  }
-  try {
-    if (recognizer && isListening) recognizer.stop();
-  } catch (e) {
-    console.warn('error stopping recognizer', e);
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-  }
-}
-
-voiceBtn.addEventListener('click', (e) => {
-  e.preventDefault();
-  if (currentMode !== 'voice') return;
-
+async function startListening() {
   if (!SpeechRecognition) {
     alert('Speech recognition not supported in this browser.');
     return;
   }
+  if (isListening) return;
 
-  if (!pollingId) {
-    recognizer = createRecognizer();
-    pollingId = setInterval(() => {
-      tryStartRecognitionOnce();
-    }, POLL_INTERVAL_MS);
+  await warmUpMic();
+  if (!recognizer) recognizer = createRecognizer();
+  if (!recognizer) return;
 
-    tryStartRecognitionOnce();
+  try {
+    restartBackoff = 250;
+    recognizer.start();
+    isListening = true;
     voiceBtn.classList.add('listening');
     setConnText('Voice: Listening (click to stop)', '#b5f27d');
-  } else {
-    stopRecognitionPolling();
+    armSilenceTimer();
+  } catch (e) {
+    console.warn('recognizer start error', e);
+    isListening = false;
     voiceBtn.classList.remove('listening');
-    setConnText('Voice: Stopped', 'white');
+    setConnText('Voice: Failed to start', 'salmon');
   }
-});
+}
 
+function stopListening() {
+  if (!recognizer) return;
+  try {
+    isListening = false;
+    recognizer.stop(); // triggers onend; we clear timers there too
+  } catch (e) {
+    console.warn('error stopping recognizer', e);
+    isListening = false;
+  }
+  voiceBtn.classList.remove('listening');
+  setConnText('Voice: Stopped', 'white');
+  clearSilenceTimer();
+}
+
+// Toggle on click/keyboard (unchanged UI)
+voiceBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (currentMode !== 'voice') return;
+  if (!isListening) startListening();
+  else stopListening();
+});
 voiceBtn.addEventListener('keydown', (e) => {
   if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault();
     voiceBtn.click();
   }
 });
-
 
 // ---------- Keyboard handling (merged from your snippet, kept same char mapping) ----------
 var up_state = false; var down_state = false; var left_state = false; var right_state = false; var z_state = false; var x_state = false; var space_state = false;
