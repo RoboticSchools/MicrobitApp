@@ -396,14 +396,23 @@ function createRecognizer() {
     voiceTextEl.textContent = transcript || '—';
 
     if (transcript) {
-      // send recognized text directly (no prefix)
-      sendUART(transcript);
-
-      // map to movement commands
+      // send movement commands when keywords are present (forward/backward/left/right)
       const mapped = mapVoiceToCommand(transcript);
       if (mapped) {
         sendUART(mapped);
         highlightArrowForCommand(mapped);
+      }
+
+      // If the user says the word "send" anywhere, send the full recognized text (excluding the word "send")
+      if (/\bsend\b/i.test(transcript)) {
+        // remove the word 'send' to avoid sending just the keyword; trim whitespace
+        const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
+        if (cleaned) {
+          sendUART(cleaned);
+        } else {
+          // if nothing remains besides 'send', still send the original transcript
+          sendUART(transcript);
+        }
       }
     }
   };
@@ -641,11 +650,11 @@ function highlightArrowForCommand(cmd){
 // Simple voice->command mapper (naive)
 function mapVoiceToCommand(text){
   const t = text.toLowerCase();
-  if(t.includes('forward') || t.includes('ahead') || t.includes('up')) return 'forward';
-  if(t.includes('back') || t.includes('reverse') || t.includes('down')) return 'backward';
-  if(t.includes('left')) return 'left';
-  if(t.includes('right')) return 'right';
-  if(t.includes('stop') || t.includes('halt')) return 'stop';
+  if(t.match(/\b(forward|ahead|up)\b/)) return 'forward';
+  if(t.match(/\b(back|backward|reverse|down)\b/)) return 'backward';
+  if(t.match(/\bleft\b/)) return 'left';
+  if(t.match(/\bright\b/)) return 'right';
+  if(t.match(/\bstop\b/)) return 'stop';
   return null;
 }
 
