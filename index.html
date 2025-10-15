@@ -202,39 +202,12 @@
       :root{ --control-size:360px; --arrow-size:90px; --center-size:140px; --gap:28px; }
       .panel-right{width:440px;}
     }
-
-    /* Mobile-specific reflow: stack panels and arrange order to match requested mobile structure */
     @media (max-width:900px){
       .app{flex-direction:column;padding:18px;}
       .panel-left{min-width:unset;}
       .panel-right{width:100%;}
-
-      /* Make panel-right appear first, controller second on mobile */
-      .panel-right{order:1;}
-      .panel-left{order:2;display:flex;justify-content:center;}
-
       :root{ --control-size:320px; --arrow-size:82px; --center-size:120px; --gap:20px;}
-
-      /* Within right panel, reorder items: device-controls first, then status, then mode selector.
-         We can't move .card out of the right panel via CSS across different parent containers,
-         so we'll also use a small JS reflow to move the .card under the controller element on mobile
-         for the final order: connect/disconnect -> status -> modes -> controller -> card (slider + recognized text). */
-      .panel-right .device-controls{order:1;}
-      .panel-right .conn-small{order:2;}
-      .panel-right .control-modes{order:3; margin-bottom:12px;}
-      /* keep the card visually present in the right panel when JS fails, but it will be moved by JS to the desired position */
-      .panel-right .card{order:4;}
-      
-      /* Make control modes and conn-small more prominent on mobile */
-      .control-modes{justify-content:flex-start; gap:10px; margin-bottom:8px;}
-      .mode-btn{padding:10px 16px;font-size:13px;}
-      .conn-small{font-size:15px;text-align:left;}
-
-      /* Slightly reduce button sizes on narrow phones */
-      .btn{height:48px;padding:10px 16px;font-size:14px;}
-      .value-badge{min-width:48px;padding:8px;font-size:13px;}
     }
-
   </style>
 </head>
 <body>
@@ -277,7 +250,7 @@
       
       <div class="conn-small" id="connSmall">Not connected</div>
 
-      <div class="card" id="card-main">
+      <div class="card">
         <div class="slider-row" aria-hidden="false">
           <div class="slider-label">SPEED</div>
           <input id="slider1" type="range" min="0" max="100" value="50" aria-label="Speed control">
@@ -303,10 +276,10 @@
 
 <script>
 /* Integrated BLE + Controls
-   - Mobile reflow: On small viewports we move the .card below the controller so the visual
-     DOM order becomes:
-       Connect / Disconnect -> Status -> Modes -> Controller -> Slider -> Recognized Text
-   - Desktop behavior unchanged.
+   - This single-file contains the UI from your earlier file plus a robust BLE layer adapted
+     from your second snippet. It writes to the micro:bit RX characteristic (6e400003) and
+     subscribes to notifications from the TX characteristic (6e400002).
+   - It also merges keyboard/arrow behaviour and the voice mapping you had.
 */
 
 // ---------- UI helpers ----------
@@ -319,16 +292,13 @@ const voiceTextEl = document.getElementById('voiceText');
 const voiceBtn = document.getElementById('voiceBtn');
 const ripple = document.getElementById('ripple');
 const controller = document.getElementById('controller');
-const cardMain = document.getElementById('card-main');
-const panelLeft = document.querySelector('.panel-left');
-const panelRight = document.querySelector('.panel-right');
 
 function setConnText(t, color){
   connSmall.textContent = t;
   connSmall.style.color = color || 'white';
 }
 
-// ---------- control mode switching (keeps original behaviour) ----------
+// ---------- control mode switching (keeps your original behaviour) ----------
 let currentMode = 'button';
 const buttonModeBtn = document.getElementById('buttonModeBtn');
 const voiceModeBtn = document.getElementById('voiceModeBtn');
@@ -400,6 +370,7 @@ function arrowButtonsSetup(){
   });
 }
 
+// ---------- Voice recognition (keeps your original single-press behaviour) ----------
 // ---------- Voice recognition (continuous with robust auto-restart) ----------
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 let recognizer = null;
@@ -417,6 +388,7 @@ function armSilenceTimer(){
   silenceTimer = setTimeout(() => {
     if (!isListening || !recognizer) return;
     try {
+      // Restart recognition after prolonged silence
       recognizer.abort();
     } catch(e) { /* ignore */ }
   }, SILENCE_MS);
@@ -426,39 +398,45 @@ function createRecognizer() {
   if (!SpeechRecognition) return null;
   const r = new SpeechRecognition();
   r.lang = 'en-US';
-  r.interimResults = true;
+  r.interimResults = true;   // get partials; reduces no-speech timeout sensitivity
   r.maxAlternatives = 1;
-  r.continuous = true;
+  r.continuous = true;       // stay running
 
   r.onresult = (e) => {
+    // grab last non-empty transcript chunk
     let transcript = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const t = (e.results[i][0]?.transcript || '').trim();
-      if (t) transcript = t;
+      if (t) transcript = t; // keep most recent
     }
     if (!transcript) return;
 
     voiceTextEl.textContent = transcript;
 
+    // keyword commands
     const mapped = mapVoiceToCommand(transcript);
     if (mapped) {
       sendUART(mapped);
       highlightArrowForCommand(mapped);
     }
 
+    // "send" keyword: send the rest of the sentence (without the word "send")
     if (/\bsend\b/i.test(transcript)) {
       const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
       sendUART(cleaned || transcript);
     }
 
+    // got speech → re-arm silence watchdog
     armSilenceTimer();
   };
 
   r.onend = () => {
+    // Chrome often stops despite continuous=true.
     if (isListening) {
       setTimeout(() => {
         try { r.start(); } catch(e) { /* will be handled in onerror path */ }
       }, restartBackoff);
+      // backoff grows a bit to avoid rapid-fire restarts
       restartBackoff = Math.min(restartBackoff * 1.5, RESTART_BACKOFF_MAX);
     } else {
       voiceBtn.classList.remove('listening');
@@ -469,7 +447,10 @@ function createRecognizer() {
 
   r.onerror = (err) => {
     console.warn('Speech error', err);
+    // Common error codes: 'no-speech', 'audio-capture', 'aborted', 'network'
     if (!isListening) return;
+
+    // For no-speech or benign aborts, try a gentle restart
     if (err.error === 'no-speech' || err.error === 'aborted' || err.error === 'network') {
       try { r.abort(); } catch(e) {}
       setTimeout(() => {
@@ -478,6 +459,8 @@ function createRecognizer() {
       restartBackoff = Math.min(restartBackoff * 1.5, RESTART_BACKOFF_MAX);
       return;
     }
+
+    // For other errors, stop and show status
     isListening = false;
     voiceBtn.classList.remove('listening');
     setConnText('Voice: Error', 'salmon');
@@ -488,9 +471,11 @@ function createRecognizer() {
 }
 
 async function warmUpMic() {
+  // Prompt for mic once; improves start reliability on some browsers
   if (!navigator.mediaDevices?.getUserMedia) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // immediately stop all tracks; we just needed the permission/warmup
     stream.getTracks().forEach(t => t.stop());
   } catch (e) {
     console.warn('Mic warmup failed', e);
@@ -527,7 +512,7 @@ function stopListening() {
   if (!recognizer) return;
   try {
     isListening = false;
-    recognizer.stop();
+    recognizer.stop(); // triggers onend; we clear timers there too
   } catch (e) {
     console.warn('error stopping recognizer', e);
     isListening = false;
@@ -537,7 +522,7 @@ function stopListening() {
   clearSilenceTimer();
 }
 
-// Toggle on click/keyboard
+// Toggle on click/keyboard (unchanged UI)
 voiceBtn.addEventListener('click', (e) => {
   e.preventDefault();
   if (currentMode !== 'voice') return;
@@ -551,7 +536,7 @@ voiceBtn.addEventListener('keydown', (e) => {
   }
 });
 
-// ---------- Keyboard handling ----------
+// ---------- Keyboard handling (merged from your snippet, kept same char mapping) ----------
 var up_state = false; var down_state = false; var left_state = false; var right_state = false; var z_state = false; var x_state = false; var space_state = false;
 
 document.addEventListener("keydown", keyDownHandler, false);
@@ -559,6 +544,7 @@ document.addEventListener("keyup", keyUpHandler, false);
 
 function keyDownHandler(event){
   var keyPressed = String.fromCharCode(event.keyCode);
+  //console.log(event.key);
   if (keyPressed == "&") { sendUART("up"); up_state = true; }
   if (keyPressed == "(") { down_state = true; sendUART("down"); }
   if (keyPressed == "%") { left_state = true; sendUART("left"); }
@@ -651,9 +637,11 @@ function onDisconnected(event){
 
 function onNotifyValueChanged(event){
   const value = event.target.value;
+  // convert to string
   const decoder = new TextDecoder();
   const text = decoder.decode(value);
   console.log('Received from device:', text);
+  // optional: display simple messages
   if(text.trim() === 'S') console.log('Shaken!');
 }
 
@@ -665,9 +653,11 @@ async function sendUART(payload){
 
   queueGattOperation(() => (async () => {
     try{
+      // prefer writeValue; if not available, fallback to writeWithoutResponse if supported
       if(writeCharacteristic.properties.write){
         await writeCharacteristic.writeValue(data);
       } else if(writeCharacteristic.properties.writeWithoutResponse){
+        // Some implementations allow writeValue even if only writeWithoutResponse is reported
         try{ await writeCharacteristic.writeValue(data); }
         catch(e){ if(typeof writeCharacteristic.writeValueWithoutResponse === 'function'){ await writeCharacteristic.writeValueWithoutResponse(data); } else throw e; }
       } else {
@@ -682,11 +672,12 @@ async function sendUART(payload){
 connectBtn.addEventListener('click', connectButtonPressed);
 disconnectBtn.addEventListener('click', disconnectButtonPressed);
 
-// ---------- small utilities ----------
+// ---------- small utilities (kept from your snippet) ----------
 function valBetween(v, min, max) { return (Math.min(max, Math.max(min, v))); }
 
 function allStop(){ sendUART('STOP'); }
 
+// Optional helper used by voice mapping to briefly highlight arrows when voice maps to a direction
 function highlightArrowForCommand(cmd){
   const mapping = { 'forward':'btn-up', 'backward':'btn-down', 'left':'btn-left', 'right':'btn-right', 'stop':'btn-down' };
   const id = mapping[cmd];
@@ -697,6 +688,7 @@ function highlightArrowForCommand(cmd){
   setTimeout(()=> el.classList.remove('active'), 360);
 }
 
+// Simple voice->command mapper (naive)
 function mapVoiceToCommand(text){
   const t = text.toLowerCase();
   if(t.match(/\b(forward|ahead|up)\b/)) return 'forward';
@@ -706,49 +698,6 @@ function mapVoiceToCommand(text){
   if(t.match(/\bstop\b/)) return 'stop';
   return null;
 }
-
-/* ---------- Mobile reflow logic ----------
-   On small screens we want:
-     1) Connect buttons
-     2) Status label
-     3) Mode switch
-     4) Controller (arrows / mic depending on mode)
-     5) Speed slider
-     6) Recognized text
-
-   We achieve this by:
-   - Using CSS to stack panels (panel-right first, controller second).
-   - Moving the .card element (slider + recognized text + device-controls) below the controller in the DOM when width < 900.
-*/
-function reflowForMobile() {
-  const mobile = window.matchMedia('(max-width:900px)').matches;
-
-  if (mobile) {
-    // move card after controller if not already moved
-    if (cardMain.parentElement !== panelLeft) {
-      // detach then insert after controller container
-      const afterNode = controller.parentElement; // panel-left
-      // Insert card after the panel-left element in the .app flow so it appears below controller
-      panelLeft.insertAdjacentElement('afterend', cardMain);
-    }
-  } else {
-    // move card back into panel-right if necessary
-    if (cardMain.parentElement !== panelRight) {
-      panelRight.appendChild(cardMain);
-    }
-  }
-}
-
-// run on load and resize
-window.addEventListener('load', reflowForMobile);
-window.addEventListener('resize', () => {
-  // debounce small resizes
-  clearTimeout(window._reflowTO);
-  window._reflowTO = setTimeout(reflowForMobile, 120);
-});
-
-// ensure initial class state for modes
-reflowForMobile();
 
 </script>
 </body>
