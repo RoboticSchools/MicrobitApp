@@ -189,7 +189,7 @@
     .btn.ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,0.06);}
     .conn-small{font-size:16px;opacity:.9;color:rgba(255,255,255,0.95);text-align:center;margin-bottom:16px;font-weight:600;}
 
-    /* active arrow highlight color */
+/* active arrow highlight color */
     .arrow-btn.active { /* kept for legacy, actual change done above */ }
 
     /* Hide elements based on mode */
@@ -376,9 +376,15 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 let recognizer = null;
 let isListening = false;
 let silenceTimer = null;
-let restartBackoff = 250; // ms, grows on repeated errors up to a cap
-const RESTART_BACKOFF_MAX = 2000; // ms
-const SILENCE_MS = 6000; // restart if no speech result for this long
+let restartBackoff = 250;
+const RESTART_BACKOFF_MAX = 2000;
+const SILENCE_MS = 2000; // 2 seconds of silence -> treat next result as new utterance
+
+// timestamp of last onresult (ms). Used to detect a gap between utterances.
+let lastResultAt = 0;
+
+// NEW flag: when true, the next speech result will replace the displayed text
+let nextUtteranceShouldReplace = false;
 
 function clearSilenceTimer(){
   if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
@@ -387,10 +393,13 @@ function armSilenceTimer(){
   clearSilenceTimer();
   silenceTimer = setTimeout(() => {
     if (!isListening || !recognizer) return;
-    try {
-      // Restart recognition after prolonged silence
-      recognizer.abort();
-    } catch(e) { /* ignore */ }
+
+    // Mark that the next utterance should replace the previous display.
+    // IMPORTANT: do NOT abort or stop the recognizer — keep the mic open continuously.
+    nextUtteranceShouldReplace = true;
+
+    // Do NOT call recognizer.abort() or recognizer.stop() here.
+    // We intentionally keep recognition running to avoid the mic turning off.
   }, SILENCE_MS);
 }
 
@@ -402,33 +411,49 @@ function createRecognizer() {
   r.maxAlternatives = 1;
   r.continuous = true;       // stay running
 
-  r.onresult = (e) => {
-    // grab last non-empty transcript chunk
-    let transcript = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const t = (e.results[i][0]?.transcript || '').trim();
-      if (t) transcript = t; // keep most recent
+ r.onresult = (e) => {
+  const now = Date.now();
+
+  // If the gap between the last result and this result is > SILENCE_MS,
+  // treat this as the start of a new utterance and replace the previous display.
+  if (lastResultAt && (now - lastResultAt) > SILENCE_MS) {
+    voiceTextEl.textContent = '';
+  }
+
+  // Build transcript only from the *new* result chunks (from e.resultIndex)
+  let transcript = '';
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    const chunk = (e.results[i][0]?.transcript || '').trim();
+    if (chunk) {
+      // If this result is final, prefer to append it directly (final = end of utterance)
+      transcript += (transcript ? ' ' : '') + chunk;
     }
-    if (!transcript) return;
+  }
+  transcript = transcript.trim();
+  if (!transcript) return;
 
-    voiceTextEl.textContent = transcript;
+  // Show the accumulating transcript for the current utterance
+  voiceTextEl.textContent = transcript;
 
-    // keyword commands
-    const mapped = mapVoiceToCommand(transcript);
-    if (mapped) {
-      sendUART(mapped);
-      highlightArrowForCommand(mapped);
-    }
+  // keyword commands
+  const mapped = mapVoiceToCommand(transcript);
+  if (mapped) {
+    sendUART(mapped);
+    highlightArrowForCommand(mapped);
+  }
 
-    // "send" keyword: send the rest of the sentence (without the word "send")
-    if (/\bsend\b/i.test(transcript)) {
-      const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
-      sendUART(cleaned || transcript);
-    }
+  // "send" keyword handling
+  if (/\bsend\b/i.test(transcript)) {
+    const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
+    sendUART(cleaned || transcript);
+  }
 
-    // got speech → re-arm silence watchdog
-    armSilenceTimer();
-  };
+  // Update timestamp of last received result and re-arm silence timer
+  lastResultAt = now;
+  armSilenceTimer();
+};
+
+
 
   r.onend = () => {
     // Chrome often stops despite continuous=true.
