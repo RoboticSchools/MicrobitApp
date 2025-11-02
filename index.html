@@ -6,19 +6,23 @@
   <title>Micro:Bit Controller — Large UI (Integrated BLE)</title>
   <style>
     :root{
-      --bg:#E84E0E;
-      --white:#fff;
-      --glass:rgba(255,255,255,0.06);
-      --accent:rgba(255,255,255,0.12);
-      --shadow:0 18px 60px rgba(0,0,0,0.25);
-      --radius:22px;
-      --gap:48px;
-      --control-size:420px;   /* increased controller size */
-      --arrow-size:110px;     /* arrow button size */
-      --center-size:160px;    /* center mic size */
-      --ctrl-gap:54px;
-      --btn-h:56px;
-      --font-sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      --bg: #0d0f12;
+      --white: #eafcff;
+      --glass: rgba(255,255,255,0.03);
+      --accent: linear-gradient(90deg,#00c3ff,#00ffa3);
+      --accent-solid: #00c3ff;
+      --accent-2: #00ffa3;
+      --muted: #9fdfff;
+      --shadow: 0 18px 60px rgba(0,0,0,0.6);
+      --radius: 22px;
+      --gap: 48px;
+      --control-size: 420px;
+      --arrow-size: 110px;
+      --center-size: 160px;
+      --ctrl-gap: 54px;
+      --btn-h: 56px;
+      --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      --payload-color: #00e0ff;
     }
 
     .top-header {
@@ -35,22 +39,28 @@
       width: auto;
       cursor: pointer;
       transition: transform 0.2s ease;
+      filter: brightness(1.05);
     }
 
     .logo:hover {
       transform: scale(1.05);
     }
 
-
     html,body{height:100%;margin:0;font-family:var(--font-sans);background:var(--bg);color:var(--white);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
     .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:36px;box-sizing:border-box;}
 
     .app{
-      width:1400px;max-width:96vw;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.02));
-      border-radius:var(--radius);box-shadow:var(--shadow);padding:44px;display:flex;gap:var(--gap);align-items:stretch;overflow:hidden;
+      width:1400px;max-width:96vw;
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.008));
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:44px;
+      display:flex;
+      gap:var(--gap);
+      align-items:stretch;
+      overflow:hidden;
     }
 
-    /* Left controller area */
     .panel-left{flex:1;min-width:520px;display:flex;align-items:center;justify-content:center;padding:28px;}
     .controller{
       width:var(--control-size);height:var(--control-size);
@@ -74,21 +84,20 @@
       cursor:pointer;
       transition: transform .14s cubic-bezier(.2,.9,.3,1), box-shadow .14s, background .14s;
       user-select:none;
-      box-shadow: 0 18px 40px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.02);
-      border: 1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.02);
       --icon-scale: 36px;
+      position:relative;
+      overflow:hidden;
     }
-    .arrow-btn .arrow-icon{ width:var(--icon-scale); height:var(--icon-scale); fill:#000; opacity:0.98; }
+    .arrow-btn .arrow-icon{ width:var(--icon-scale); height:var(--icon-scale); fill:var(--muted); opacity:0.98; transition:fill .12s ease; }
     .arrow-btn:active, .arrow-btn.pressed, .arrow-btn.active {
       transform: translateY(-8px) scale(1.03);
-      box-shadow: 0 28px 60px rgba(0,0,0,0.32);
-      /* keep smooth transition but override background/icon below */
+      box-shadow: 0 28px 60px rgba(0,0,0,0.6);
     }
-
-    /* When active/pressed make the whole button solid white and invert the icon to the accent (orange) */
     .arrow-btn.active, .arrow-btn.pressed {
-      background: var(--white) !important;
-      border-color: rgba(255,255,255,0.9);
+      background: var(--accent) !important;
+      border-color: rgba(0,0,0,0.12);
     }
     .arrow-btn.active .arrow-icon, .arrow-btn.pressed .arrow-icon{
       fill: var(--bg) !important;
@@ -100,27 +109,23 @@
     .right{grid-row:2;grid-column:3}
     .down{grid-row:3;grid-column:2}
 
-    /* center mic button */
     .dot{
       grid-row:2;grid-column:2;
       width:var(--center-size);height:var(--center-size);
-      border-radius:999px;background:var(--white);
+      border-radius:999px;background:var(--glass);
       display:flex;align-items:center;justify-content:center;
-      box-shadow: 0 20px 80px rgba(0,0,0,0.3);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.45);
       transform-origin:center;cursor:pointer;
+      transition: box-shadow .12s ease, background .12s ease, transform .12s ease;
+      position:relative;
+      overflow:hidden;
     }
-    .dot svg{width:56px;height:56px;fill:var(--bg)}
-    .dot.listening{ box-shadow: 0 32px 110px rgba(0,0,0,0.42), 0 0 0 12px rgba(255,255,255,0.06); }
-    .dot.listening::after{
-      content:"";
-      position:absolute;inset:-8px;border-radius:999px;border:2px solid rgba(255,255,255,0.22);
-      animation:ping 1.2s cubic-bezier(.2,.9,.3,1) infinite;
-    }
-    @keyframes ping{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.28);opacity:0}}
+    .dot svg{width:56px;height:56px;fill:var(--muted);transition:fill .12s ease}
+    .dot.listening{ box-shadow: 0 32px 110px rgba(0,0,0,0.5), 0 0 0 12px rgba(0,195,255,0.06); background: var(--accent) !important; transform: translateY(-6px) scale(1.02); }
+    .dot.listening svg{ fill: var(--bg) !important; }
 
-    .ripple{position:absolute;width:18px;height:18px;border-radius:999px;background:rgba(255,255,255,0.12);pointer-events:none;transform:scale(0);opacity:0;}
+    .ripple{position:absolute;width:18px;height:18px;border-radius:999px;background:rgba(0,195,255,0.06);pointer-events:none;transform:scale(0);opacity:0;}
 
-    /* Control mode buttons */
     .control-modes{
       display:flex;
       gap:12px;
@@ -130,25 +135,24 @@
     .mode-btn{
       background:var(--glass);
       color:var(--white);
-      border:1px solid rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.04);
       padding:12px 24px;
       border-radius:12px;
       cursor:pointer;
       font-weight:800;
       font-size:14px;
-      transition:all .2s ease;
+      transition:all .12s ease;
       user-select:none;
+      position:relative;
+      overflow:hidden;
     }
     .mode-btn.active{
       background:var(--white);
       color:var(--bg);
       box-shadow:0 8px 24px rgba(0,0,0,0.15);
     }
-    .mode-btn:hover:not(.active){
-      background:rgba(255,255,255,0.08);
-    }
+    .mode-btn:active, .mode-btn.pressed{ transform: translateY(2px) scale(0.995); box-shadow:none; }
 
-    /* Right panel (controls) */
     .panel-right{
       width:520px; max-width:48%;
       padding:28px;
@@ -162,42 +166,44 @@
       background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
       padding:22px;
       border-radius:16px;
-      border:1px solid rgba(255,255,255,0.03);
-      box-shadow: 0 14px 40px rgba(0,0,0,0.12);
+      border:1px solid rgba(255,255,255,0.02);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.28);
       display:flex;
       flex-direction:column;
       gap:16px;
     }
 
     .slider-row{display:flex;align-items:center;gap:18px;}
-    .slider-label{width:110px;font-weight:800;font-size:14px;opacity:.98}
+    .slider-label{width:110px;font-weight:800;font-size:14px;color:var(--muted)}
     input[type=range]{-webkit-appearance:none;appearance:none;height:8px;flex:1;background:transparent;outline:none;border-radius:8px;}
-    input[type=range]::-webkit-slider-runnable-track{height:8px;background:linear-gradient(90deg,rgba(255,255,255,0.14),rgba(255,255,255,0.06));border-radius:8px;}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--white);box-shadow:0 12px 36px rgba(0,0,0,0.28);margin-top:-7px;}
-    .value-badge{min-width:56px;text-align:center;font-weight:800;background:var(--accent);padding:10px;border-radius:12px;font-size:15px;}
+    input[type=range]::-webkit-slider-runnable-track{height:8px;background:linear-gradient(90deg,var(--accent-solid),var(--accent-2));border-radius:8px;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--white);box-shadow:0 12px 36px rgba(0,0,0,0.4);margin-top:-7px;}
+    .value-badge{min-width:56px;text-align:center;font-weight:800;background:linear-gradient(90deg,var(--accent-solid),var(--accent-2));padding:10px;border-radius:12px;font-size:15px;color:var(--bg);}
 
     .voice-display{
-      padding:16px;border-radius:12px;background: rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.02);min-height:64px;
-      display:flex;flex-direction:column;gap:8px;font-weight:700;
+      padding:16px;border-radius:12px;background: rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.01);min-height:64px;
+      display:flex;flex-direction:column;gap:8px;font-weight:700;color:var(--white);
     }
-    .voice-label{opacity:0.85;font-size:13px;font-weight:800}
+    .voice-label{opacity:0.85;font-size:13px;font-weight:800;color:var(--muted)}
 
     .device-controls{
       display:flex;gap:14px;align-items:center;justify-content:flex-start;
     }
-    .btn{background:var(--white);color:var(--bg);border:none;padding:12px 20px;border-radius:14px;cursor:pointer;font-weight:800;height:var(--btn-h);box-shadow:0 16px 40px rgba(0,0,0,0.12);font-size:15px;}
-    .btn.ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,0.06);}
-    .conn-small{font-size:16px;opacity:.9;color:rgba(255,255,255,0.95);text-align:center;margin-bottom:16px;font-weight:600;}
+    .btn{background:var(--white);color:var(--bg);border:none;padding:12px 20px;border-radius:14px;cursor:pointer;font-weight:800;height:var(--btn-h);box-shadow:0 16px 40px rgba(0,0,0,0.12);font-size:15px;position:relative;overflow:hidden;}
+    .btn.ghost{background:transparent;color:var(--white);border:1px solid rgba(255,255,255,0.04);}
+    .btn:active, .btn.pressed{ transform: translateY(2px) scale(0.995); box-shadow:none; }
 
-/* active arrow highlight color */
-    .arrow-btn.active { /* kept for legacy, actual change done above */ }
+    .conn-small{font-size:16px;opacity:.95;color:var(--muted);text-align:center;margin-bottom:16px;font-weight:600;}
 
-    /* Hide elements based on mode */
     .voice-mode .arrow-btn{ display:none; }
     .button-mode .dot{ display:none; }
     .voice-mode .controller{ grid-template-rows: 1fr; grid-template-columns: 1fr; place-items:center; }
 
-    /* responsive */
+    .click-ripple{
+      position:absolute;border-radius:50%;transform:scale(0);opacity:0.36;pointer-events:none;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.55) 20%, rgba(255,255,255,0.18) 40%, transparent 60%);
+    }
+
     @media (max-width:1200px){
       :root{ --control-size:360px; --arrow-size:90px; --center-size:140px; --gap:28px; }
       .panel-right{width:440px;}
@@ -275,14 +281,6 @@
 </div>
 
 <script>
-/* Integrated BLE + Controls
-   - This single-file contains the UI from your earlier file plus a robust BLE layer adapted
-     from your second snippet. It writes to the micro:bit RX characteristic (6e400003) and
-     subscribes to notifications from the TX characteristic (6e400002).
-   - It also merges keyboard/arrow behaviour and the voice mapping you had.
-*/
-
-// ---------- UI helpers ----------
 const connSmall = document.getElementById('connSmall');
 const connectBtn = document.getElementById('connectBtn');
 const disconnectBtn = document.getElementById('disconnectBtn');
@@ -298,7 +296,6 @@ function setConnText(t, color){
   connSmall.style.color = color || 'white';
 }
 
-// ---------- control mode switching (keeps your original behaviour) ----------
 let currentMode = 'button';
 const buttonModeBtn = document.getElementById('buttonModeBtn');
 const voiceModeBtn = document.getElementById('voiceModeBtn');
@@ -316,7 +313,6 @@ buttonModeBtn.addEventListener('click', () => switchMode('button'));
 voiceModeBtn.addEventListener('click', () => switchMode('voice'));
 switchMode('button');
 
-// ---------- ripple ----------
 function animateRipple(){
   const size = Math.max(160, window.innerWidth * 0.08);
   ripple.style.width = ripple.style.height = size + 'px';
@@ -328,20 +324,16 @@ function animateRipple(){
   );
 }
 
-// ---------- speed slider ----------
 let sBusy = false;
 slider1.addEventListener('input', (e) => {
-  // convert range 0–100 → 0–255
   const scaledValue = Math.round((e.target.value / 100) * 255);
   v1.textContent = scaledValue;
   if (sBusy) return;
   sBusy = true;
-  // send with prefix "speed"
   sendUART(`speed${scaledValue}`);
   setTimeout(() => sBusy = false, 140);
 });
 
-// ---------- Arrow/button behaviour ----------
 const arrowButtons = document.querySelectorAll('.arrow-btn');
 arrowButtonsSetup();
 function arrowButtonsSetup(){
@@ -370,20 +362,14 @@ function arrowButtonsSetup(){
   });
 }
 
-// ---------- Voice recognition (keeps your original single-press behaviour) ----------
-// ---------- Voice recognition (continuous with robust auto-restart) ----------
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 let recognizer = null;
 let isListening = false;
 let silenceTimer = null;
 let restartBackoff = 250;
 const RESTART_BACKOFF_MAX = 2000;
-const SILENCE_MS = 2000; // 2 seconds of silence -> treat next result as new utterance
-
-// timestamp of last onresult (ms). Used to detect a gap between utterances.
+const SILENCE_MS = 2000;
 let lastResultAt = 0;
-
-// NEW flag: when true, the next speech result will replace the displayed text
 let nextUtteranceShouldReplace = false;
 
 function clearSilenceTimer(){
@@ -393,13 +379,7 @@ function armSilenceTimer(){
   clearSilenceTimer();
   silenceTimer = setTimeout(() => {
     if (!isListening || !recognizer) return;
-
-    // Mark that the next utterance should replace the previous display.
-    // IMPORTANT: do NOT abort or stop the recognizer — keep the mic open continuously.
     nextUtteranceShouldReplace = true;
-
-    // Do NOT call recognizer.abort() or recognizer.stop() here.
-    // We intentionally keep recognition running to avoid the mic turning off.
   }, SILENCE_MS);
 }
 
@@ -407,61 +387,43 @@ function createRecognizer() {
   if (!SpeechRecognition) return null;
   const r = new SpeechRecognition();
   r.lang = 'en-US';
-  r.interimResults = true;   // get partials; reduces no-speech timeout sensitivity
+  r.interimResults = true;
   r.maxAlternatives = 1;
-  r.continuous = true;       // stay running
+  r.continuous = true;
 
  r.onresult = (e) => {
   const now = Date.now();
-
-  // If the gap between the last result and this result is > SILENCE_MS,
-  // treat this as the start of a new utterance and replace the previous display.
   if (lastResultAt && (now - lastResultAt) > SILENCE_MS) {
     voiceTextEl.textContent = '';
   }
-
-  // Build transcript only from the *new* result chunks (from e.resultIndex)
   let transcript = '';
   for (let i = e.resultIndex; i < e.results.length; i++) {
     const chunk = (e.results[i][0]?.transcript || '').trim();
     if (chunk) {
-      // If this result is final, prefer to append it directly (final = end of utterance)
       transcript += (transcript ? ' ' : '') + chunk;
     }
   }
   transcript = transcript.trim();
   if (!transcript) return;
-
-  // Show the accumulating transcript for the current utterance
   voiceTextEl.textContent = transcript;
-
-  // keyword commands
   const mapped = mapVoiceToCommand(transcript);
   if (mapped) {
     sendUART(mapped);
     highlightArrowForCommand(mapped);
   }
-
-  // "send" keyword handling
   if (/\bsend\b/i.test(transcript)) {
     const cleaned = transcript.replace(/\bsend\b/gi, '').trim();
     sendUART(cleaned || transcript);
   }
-
-  // Update timestamp of last received result and re-arm silence timer
   lastResultAt = now;
   armSilenceTimer();
 };
 
-
-
   r.onend = () => {
-    // Chrome often stops despite continuous=true.
     if (isListening) {
       setTimeout(() => {
-        try { r.start(); } catch(e) { /* will be handled in onerror path */ }
+        try { r.start(); } catch(e) {}
       }, restartBackoff);
-      // backoff grows a bit to avoid rapid-fire restarts
       restartBackoff = Math.min(restartBackoff * 1.5, RESTART_BACKOFF_MAX);
     } else {
       voiceBtn.classList.remove('listening');
@@ -471,21 +433,15 @@ function createRecognizer() {
   };
 
   r.onerror = (err) => {
-    console.warn('Speech error', err);
-    // Common error codes: 'no-speech', 'audio-capture', 'aborted', 'network'
     if (!isListening) return;
-
-    // For no-speech or benign aborts, try a gentle restart
     if (err.error === 'no-speech' || err.error === 'aborted' || err.error === 'network') {
       try { r.abort(); } catch(e) {}
       setTimeout(() => {
-        try { r.start(); } catch(e) { /* let onend handle retries */ }
+        try { r.start(); } catch(e) {}
       }, restartBackoff);
       restartBackoff = Math.min(restartBackoff * 1.5, RESTART_BACKOFF_MAX);
       return;
     }
-
-    // For other errors, stop and show status
     isListening = false;
     voiceBtn.classList.remove('listening');
     setConnText('Voice: Error', 'salmon');
@@ -496,15 +452,11 @@ function createRecognizer() {
 }
 
 async function warmUpMic() {
-  // Prompt for mic once; improves start reliability on some browsers
   if (!navigator.mediaDevices?.getUserMedia) return;
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // immediately stop all tracks; we just needed the permission/warmup
     stream.getTracks().forEach(t => t.stop());
-  } catch (e) {
-    console.warn('Mic warmup failed', e);
-  }
+  } catch (e) {}
 }
 
 async function startListening() {
@@ -513,11 +465,9 @@ async function startListening() {
     return;
   }
   if (isListening) return;
-
   await warmUpMic();
   if (!recognizer) recognizer = createRecognizer();
   if (!recognizer) return;
-
   try {
     restartBackoff = 250;
     recognizer.start();
@@ -526,7 +476,6 @@ async function startListening() {
     setConnText('Voice: Listening (click to stop)', '#b5f27d');
     armSilenceTimer();
   } catch (e) {
-    console.warn('recognizer start error', e);
     isListening = false;
     voiceBtn.classList.remove('listening');
     setConnText('Voice: Failed to start', 'salmon');
@@ -537,9 +486,8 @@ function stopListening() {
   if (!recognizer) return;
   try {
     isListening = false;
-    recognizer.stop(); // triggers onend; we clear timers there too
+    recognizer.stop();
   } catch (e) {
-    console.warn('error stopping recognizer', e);
     isListening = false;
   }
   voiceBtn.classList.remove('listening');
@@ -547,7 +495,6 @@ function stopListening() {
   clearSilenceTimer();
 }
 
-// Toggle on click/keyboard (unchanged UI)
 voiceBtn.addEventListener('click', (e) => {
   e.preventDefault();
   if (currentMode !== 'voice') return;
@@ -561,7 +508,6 @@ voiceBtn.addEventListener('keydown', (e) => {
   }
 });
 
-// ---------- Keyboard handling (merged from your snippet, kept same char mapping) ----------
 var up_state = false; var down_state = false; var left_state = false; var right_state = false; var z_state = false; var x_state = false; var space_state = false;
 
 document.addEventListener("keydown", keyDownHandler, false);
@@ -569,7 +515,6 @@ document.addEventListener("keyup", keyUpHandler, false);
 
 function keyDownHandler(event){
   var keyPressed = String.fromCharCode(event.keyCode);
-  //console.log(event.key);
   if (keyPressed == "&") { sendUART("up"); up_state = true; }
   if (keyPressed == "(") { down_state = true; sendUART("down"); }
   if (keyPressed == "%") { left_state = true; sendUART("left"); }
@@ -590,16 +535,14 @@ function keyUpHandler(event){
   if (keyPressed == "X") { x_state = false; sendUART("stop"); }
 }
 
-// ---------- BLE (UART NUS) ----------
 const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const UART_NOTIFY_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // device -> browser (notify)
-const UART_WRITE_CHAR_UUID  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // browser -> device (write)
+const UART_NOTIFY_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_WRITE_CHAR_UUID  = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
 let uBitDevice = null;
-let notifyCharacteristic = null; // tx from device
-let writeCharacteristic = null;  // rx on device (we write here)
+let notifyCharacteristic = null;
+let writeCharacteristic = null;
 
-// Simple operation queue to avoid concurrent writes
 let queue = Promise.resolve();
 function queueGattOperation(operation) { queue = queue.then(operation, operation); return queue; }
 
@@ -613,34 +556,24 @@ async function connectButtonPressed(){
       optionalServices: [UART_SERVICE_UUID]
     });
     uBitDevice.addEventListener('gattserverdisconnected', onDisconnected);
-
     setConnText('Connecting...', 'yellow');
     const server = await uBitDevice.gatt.connect();
-
     setConnText('Getting service...', 'yellow');
     const service = await server.getPrimaryService(UART_SERVICE_UUID);
-
     setConnText('Getting characteristics...', 'yellow');
-    // get notify (device -> browser)
     notifyCharacteristic = await service.getCharacteristic(UART_NOTIFY_CHAR_UUID);
     showCharInfo(notifyCharacteristic, 'notifyChar (6e400002)');
     if(notifyCharacteristic.properties.notify || notifyCharacteristic.properties.indicate){
       await notifyCharacteristic.startNotifications();
       notifyCharacteristic.addEventListener('characteristicvaluechanged', onNotifyValueChanged);
-    } else {
-      console.warn('notifyChar does not support notifications.');
     }
-
-    // get write characteristic (browser -> device)
     writeCharacteristic = await service.getCharacteristic(UART_WRITE_CHAR_UUID);
     showCharInfo(writeCharacteristic, 'writeChar (6e400003)');
-
     setConnText('Connected: ' + (uBitDevice.name || 'Micro:Bit'), '#b5f27d');
     document.getElementById('connectBtn').textContent = 'Connected';
     document.getElementById('connectBtn').disabled = true;
     document.getElementById('robotShow') && document.getElementById('robotShow').classList && document.getElementById('robotShow').classList.add('robotShow_connected');
   }catch(err){
-    console.warn('Connect failed', err);
     setConnText('Connection failed - Make sure Micro:Bit is on and nearby', 'salmon');
   }
 }
@@ -653,7 +586,6 @@ function disconnectButtonPressed(){
 
 function onDisconnected(event){
   let device = event.target;
-  console.log(`Device ${device.name} is disconnected.`);
   setConnText('Disconnected', 'white');
   document.getElementById('connectBtn').textContent = 'Connect';
   document.getElementById('connectBtn').disabled = false;
@@ -662,47 +594,36 @@ function onDisconnected(event){
 
 function onNotifyValueChanged(event){
   const value = event.target.value;
-  // convert to string
   const decoder = new TextDecoder();
   const text = decoder.decode(value);
-  console.log('Received from device:', text);
-  // optional: display simple messages
   if(text.trim() === 'S') console.log('Shaken!');
 }
 
-// sendUART: writes to writeCharacteristic (6e400003)
 async function sendUART(payload){
   if(!writeCharacteristic){ setConnText('Not connected - Click Connect first', 'salmon'); return; }
   const encoder = new TextEncoder();
   const data = encoder.encode(payload + '\n');
-
   queueGattOperation(() => (async () => {
     try{
-      // prefer writeValue; if not available, fallback to writeWithoutResponse if supported
       if(writeCharacteristic.properties.write){
         await writeCharacteristic.writeValue(data);
       } else if(writeCharacteristic.properties.writeWithoutResponse){
-        // Some implementations allow writeValue even if only writeWithoutResponse is reported
         try{ await writeCharacteristic.writeValue(data); }
         catch(e){ if(typeof writeCharacteristic.writeValueWithoutResponse === 'function'){ await writeCharacteristic.writeValueWithoutResponse(data); } else throw e; }
       } else {
         throw new Error('Characteristic not writable');
       }
-      console.log('Sent:', payload);
-    }catch(err){ console.error('Write error', err); setConnText('Send failed - Check Micro:Bit connection', 'salmon'); }
+    }catch(err){ setConnText('Send failed - Check Micro:Bit connection', 'salmon'); }
   })());
 }
 
-// Attach connect/disconnect buttons
 connectBtn.addEventListener('click', connectButtonPressed);
 disconnectBtn.addEventListener('click', disconnectButtonPressed);
 
-// ---------- small utilities (kept from your snippet) ----------
 function valBetween(v, min, max) { return (Math.min(max, Math.max(min, v))); }
 
 function allStop(){ sendUART('STOP'); }
 
-// Optional helper used by voice mapping to briefly highlight arrows when voice maps to a direction
 function highlightArrowForCommand(cmd){
   const mapping = { 'forward':'btn-up', 'backward':'btn-down', 'left':'btn-left', 'right':'btn-right', 'stop':'btn-down' };
   const id = mapping[cmd];
@@ -713,7 +634,6 @@ function highlightArrowForCommand(cmd){
   setTimeout(()=> el.classList.remove('active'), 360);
 }
 
-// Simple voice->command mapper (naive)
 function mapVoiceToCommand(text){
   const t = text.toLowerCase();
   if(t.match(/\b(forward|ahead|up)\b/)) return 'forward';
@@ -724,6 +644,44 @@ function mapVoiceToCommand(text){
   return null;
 }
 
+function attachClickEffectTo(el, options = {}) {
+  el.addEventListener('pointerdown', (ev) => {
+    const rect = el.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    const y = ev.clientY - rect.top;
+    el.classList.add('pressed');
+    let rippleEl = document.createElement('span');
+    rippleEl.className = 'click-ripple';
+    const size = Math.max(rect.width, rect.height) * 1.2;
+    rippleEl.style.width = rippleEl.style.height = size + 'px';
+    rippleEl.style.left = (x - size/2) + 'px';
+    rippleEl.style.top = (y - size/2) + 'px';
+    rippleEl.style.opacity = '0.36';
+    rippleEl.style.transition = 'transform 420ms cubic-bezier(.2,.9,.3,1), opacity 420ms linear';
+    el.appendChild(rippleEl);
+    requestAnimationFrame(() => {
+      rippleEl.style.transform = 'scale(1)';
+      rippleEl.style.opacity = '0';
+    });
+    setTimeout(() => {
+      try { rippleEl.remove(); } catch(e){}
+    }, 520);
+  }, {passive: true});
+
+  const remove = () => { el.classList.remove('pressed'); };
+  el.addEventListener('pointerup', remove);
+  el.addEventListener('pointercancel', remove);
+  el.addEventListener('pointerleave', remove);
+}
+
+const allInteractive = [
+  ...document.querySelectorAll('.arrow-btn'),
+  ...document.querySelectorAll('.mode-btn'),
+  ...document.querySelectorAll('.btn'),
+  voiceBtn
+];
+
+allInteractive.forEach(node => attachClickEffectTo(node));
 </script>
 </body>
 </html>
